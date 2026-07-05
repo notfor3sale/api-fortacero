@@ -6,7 +6,7 @@ const app = express();
 app.use(express.json());
 app.use(cors());
 
-// Se inicializa usando variables de entorno globales
+// Se inicializa usando tu variable de entorno global (la de producción que ya pusiste)
 const client = new MercadoPagoConfig({ 
     accessToken: process.env.MP_ACCESS_TOKEN 
 });
@@ -18,10 +18,13 @@ app.get('/', (req, res) => {
     res.status(200).send("API de Cobros Fortacero activa y corriendo en Render.");
 });
 
-// Endpoint principal de cobro
+// Endpoint principal de cobro optimizado
 app.post('/cobro-2d', async (req, res) => {
     try {
-        const { token, paymentMethodId, issuerId, email, amount, description } = req.body;
+        // Línea de depuración para ver qué datos entran al servidor
+        console.log("--> DATOS RECIBIDOS EN BACKEND:", req.body);
+
+        const { token, paymentMethodId, email, amount, description } = req.body;
 
         const paymentData = {
             body: {
@@ -30,11 +33,10 @@ app.post('/cobro-2d', async (req, res) => {
                 description: description || 'Compra Web Fortacero', 
                 installments: 1,
                 payment_method_id: paymentMethodId,
-                issuer_id: issuerId !== "default" && issuerId ? Number(issuerId) : undefined,
                 payer: {
                     email: email
                 },
-                three_d_secure_mode: 'not_supported' // Forzar 2D directo
+                three_d_secure_mode: 'not_supported' // Forzar procesamiento 2D directo
             }
         };
 
