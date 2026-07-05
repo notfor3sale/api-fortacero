@@ -1,66 +1,70 @@
 const express = require('express');
 const cors = require('cors');
-const { MercadoPagoConfig, Payment } = require('mercadopago');
+const { Conekta, OrdersApi } = require('conekta');
 
 const app = express();
 app.use(express.json());
 app.use(cors());
 
-// Inicialización con tu variable de entorno de producción (APP_USR-...)
-const client = new MercadoPagoConfig({ 
-    accessToken: process.env.MP_ACCESS_TOKEN 
-});
+// Se inicializa Conekta con tu llave privada de producción o pruebas
+// Recuerda crear la variable CONEKTA_API_KEY en el "Environment" de Render
+const conektaClient = new Conekta();
+conektaClient.config.accessToken = process.env.CONEKTA_API_KEY;
 
-const payment = new Payment(client);
+const ordersApi = new OrdersApi(conektaClient);
 
-// Test rápido de salud
+// Test rápido de salud de la API
 app.get('/', (req, res) => {
-    res.status(200).send("API de Cobros Fortacero activa y corriendo en Render.");
+    res.status(200).send("API de Cobros Fortacero activa y corriendo en Render con Conekta.");
 });
 
-// Endpoint principal corregido para producción
-app.post('/cobro-2d', async (req, res) => {
+// Endpoint de cobro con tarjeta directo (2D)
+app.post('/cobro-conekta', async (req, res) => {
     try {
-        console.log("--> DATOS RECIBIDOS EN BACKEND:", req.body);
+        console.log("--> DATOS RECIBIDOS EN BACKEND (CONEKTA):", req.body);
+        const { token, email, name, amount, description } = req.body;
 
-        const { token, paymentMethodId, email, amount, description } = req.body;
+        // Conekta maneja los montos en CENTAVOS (Ej: $1.00 MXN = 100 centavos)
+        const amountInCents = Math.round(parseFloat(amount) * 100);
 
-        // Estructura oficial requerida por el SDK v2 de Mercado Pago
-        const paymentData = {
-            body: {
-                transaction_amount: Number(amount),
-                token: token,
-                description: description || 'Compra Web Fortacero', 
-                installments: 1,
-                payment_method_id: String(paymentMethodId).toLowerCase(), // Asegura minúsculas puras
-                payer: {
-                    email: email
-                }
+        const orderRequest = {
+            currency: "MXN",
+            customer_info: {
+                name: name || "Cliente Fortacero",
+                email: email
             },
-            // Forzar en los headers de la petición el entorno limpio
-            requestOptions: {
-                idempotencyKey: 'key_' + token // Evita duplicidad de cobros
-            }
+            line_items: [{
+                name: description || "Compra Web Fortacero",
+                unit_price: amountInCents,
+                quantity: 1
+            }],
+            charges: [{
+                payment_method: {
+                    type: "card",
+                    token_id: token // Token seguro generado por el frontend
+                }
+            }]
         };
 
-        const result = await payment.create(paymentData);
+        const response = await ordersApi.createOrder(orderRequest);
+        const order = response.data;
 
-        if (result.status === 'approved') {
-            return res.status(200).json({ success: true, status: result.status });
+        // Validamos si el cargo fue pagado de inmediato
+        if (order.payment_status === 'paid') {
+            return res.status(200).json({ success: true, status: order.payment_status, order_id: order.id });
         } else {
-            // Si es rechazado por fondos, fraude, etc., nos dará el detalle real de la tarjeta
-            return res.status(400).json({ success: false, status: result.status, error: result.status_detail });
+            return res.status(400).json({ success: false, status: order.payment_status, error: "El pago no pudo ser procesado." });
         }
 
     } catch (error) {
-        console.error("Error completo de Mercado Pago:", error);
-        // Si la API responde con un array de errores internos, lo pintamos en Render
-        const errorMsg = error.cause && error.cause[0] ? error.cause[0].description : error.message;
-        return res.status(500).json({ success: false, error: errorMsg });
+        console.error("Error completo en Conekta:", error);
+        // Extraemos el mensaje de error real devuelto por Conekta
+        const errorDetails = error.response?.data?.details?.[0]?.message || error.message;
+        return res.status(500).json({ success: false, error: errorDetails });
     }
 });
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-    console.log(`Servidor activo en puerto ${PORT}`);
+    console.log(`Servidor de Conekta activo en puerto ${PORT}`);
 });
