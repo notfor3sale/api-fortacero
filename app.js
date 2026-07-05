@@ -8,7 +8,7 @@ app.use(express.json());
 app.use(cors());
 
 const config = new Configuration({
-    accessToken: "key_dNzWZF0VSfqvN9cIh6mDfBQ"
+    accessToken: "key_7BV1gdyCTZrKsxRxZNy2dhz"
 });
 
 const ordersApi = new OrdersApi(config);
