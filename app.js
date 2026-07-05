@@ -1,30 +1,30 @@
 const express = require('express');
 const cors = require('cors');
-const { Conekta, OrdersApi } = require('conekta');
+// 1. Cambiamos la importación aquí para usar la estructura oficial correcta
+const { Configuration, OrdersApi } = require('conekta');
 
 const app = express();
 app.use(express.json());
 app.use(cors());
 
-// Se inicializa Conekta con tu llave privada de producción o pruebas
-// Recuerda crear la variable CONEKTA_API_KEY en el "Environment" de Render
-const conektaClient = new Conekta();
-conektaClient.config.accessToken = process.env.CONEKTA_API_KEY;
+// 2. Corregimos la inicialización usando la clase Configuration
+const config = new Configuration({
+    accessToken: process.env.CONEKTA_API_KEY
+});
 
-const ordersApi = new OrdersApi(conektaClient);
+const ordersApi = new OrdersApi(config);
 
 // Test rápido de salud de la API
 app.get('/', (req, res) => {
     res.status(200).send("API de Cobros Fortacero activa y corriendo en Render con Conekta.");
 });
 
-// Endpoint de cobro con tarjeta directo (2D)
+// Endpoint de cobro con tarjeta directo
 app.post('/cobro-conekta', async (req, res) => {
     try {
         console.log("--> DATOS RECIBIDOS EN BACKEND (CONEKTA):", req.body);
         const { token, email, name, amount, description } = req.body;
 
-        // Conekta maneja los montos en CENTAVOS (Ej: $1.00 MXN = 100 centavos)
         const amountInCents = Math.round(parseFloat(amount) * 100);
 
         const orderRequest = {
@@ -41,7 +41,7 @@ app.post('/cobro-conekta', async (req, res) => {
             charges: [{
                 payment_method: {
                     type: "card",
-                    token_id: token // Token seguro generado por el frontend
+                    token_id: token
                 }
             }]
         };
@@ -49,7 +49,6 @@ app.post('/cobro-conekta', async (req, res) => {
         const response = await ordersApi.createOrder(orderRequest);
         const order = response.data;
 
-        // Validamos si el cargo fue pagado de inmediato
         if (order.payment_status === 'paid') {
             return res.status(200).json({ success: true, status: order.payment_status, order_id: order.id });
         } else {
@@ -58,7 +57,6 @@ app.post('/cobro-conekta', async (req, res) => {
 
     } catch (error) {
         console.error("Error completo en Conekta:", error);
-        // Extraemos el mensaje de error real devuelto por Conekta
         const errorDetails = error.response?.data?.details?.[0]?.message || error.message;
         return res.status(500).json({ success: false, error: errorDetails });
     }
