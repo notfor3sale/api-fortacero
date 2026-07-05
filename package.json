@@ -6,8 +6,8 @@
     "start": "node app.js"
   },
   "dependencies": {
+    "conekta": "^6.0.0",
     "cors": "^2.8.5",
-    "express": "^4.19.2",
-    "mercadopago": "^2.0.11"
+    "express": "^4.19.2"
   }
 }
