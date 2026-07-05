@@ -1,15 +1,14 @@
 const express = require('express');
 const cors = require('cors');
-// 1. Cambiamos la importación aquí para usar la estructura oficial correcta
+// Importación oficial correcta para la versión v6 del SDK
 const { Configuration, OrdersApi } = require('conekta');
 
 const app = express();
 app.use(express.json());
 app.use(cors());
 
-// 2. Corregimos la inicialización usando la clase Configuration
 const config = new Configuration({
-    accessToken: process.env.CONEKTA_API_KEY
+    accessToken: "key_dNzWZF0VSfqvN9cIh6mDfBQ"
 });
 
 const ordersApi = new OrdersApi(config);
@@ -25,6 +24,7 @@ app.post('/cobro-conekta', async (req, res) => {
         console.log("--> DATOS RECIBIDOS EN BACKEND (CONEKTA):", req.body);
         const { token, email, name, amount, description } = req.body;
 
+        // Conekta maneja los montos en CENTAVOS (Ej: $3.00 MXN = 300 centavos)
         const amountInCents = Math.round(parseFloat(amount) * 100);
 
         const orderRequest = {
@@ -41,7 +41,7 @@ app.post('/cobro-conekta', async (req, res) => {
             charges: [{
                 payment_method: {
                     type: "card",
-                    token_id: token
+                    token_id: token // Token seguro generado por el frontend en cPanel
                 }
             }]
         };
@@ -49,6 +49,7 @@ app.post('/cobro-conekta', async (req, res) => {
         const response = await ordersApi.createOrder(orderRequest);
         const order = response.data;
 
+        // Validamos si el cargo fue pagado de inmediato
         if (order.payment_status === 'paid') {
             return res.status(200).json({ success: true, status: order.payment_status, order_id: order.id });
         } else {
@@ -57,6 +58,7 @@ app.post('/cobro-conekta', async (req, res) => {
 
     } catch (error) {
         console.error("Error completo en Conekta:", error);
+        // Extraemos el mensaje de error real devuelto por la API de Conekta
         const errorDetails = error.response?.data?.details?.[0]?.message || error.message;
         return res.status(500).json({ success: false, error: errorDetails });
     }
