@@ -1,6 +1,6 @@
 const express = require('express');
 const cors = require('cors');
-// Importación oficial correcta para la versión v6 del SDK
+
 const { Configuration, OrdersApi } = require('conekta');
 
 const app = express();
@@ -13,7 +13,6 @@ const config = new Configuration({
 
 const ordersApi = new OrdersApi(config);
 
-// 🌟 DISEÑO PREMIUM PARA EL TEST DE SALUD DE LA API
 app.get('/', (req, res) => {
     res.status(200).send(`
         <!DOCTYPE html>
@@ -77,7 +76,7 @@ app.get('/', (req, res) => {
                     gap: 8px;
                     background-color: #e6f7ed;
                     color: #1e7e34;
-                    padding: 8px 16px;
+                    padding: 8px 18px;
                     border-radius: 20px;
                     font-size: 13px;
                     font-weight: 600;
@@ -91,11 +90,24 @@ app.get('/', (req, res) => {
                     animation: pulse 2s infinite;
                 }
                 .footer-text {
-                    margin-top: 30px;
+                    margin-top: 25px;
                     font-size: 11px;
                     color: #999999;
                     text-transform: uppercase;
                     letter-spacing: 0.5px;
+                }
+                .dev-credits {
+                    margin-top: 8px;
+                    font-size: 12px;
+                    color: #777777;
+                }
+                .dev-credits a {
+                    color: #321fdb;
+                    text-decoration: none;
+                    font-weight: 500;
+                }
+                .dev-credits a:hover {
+                    text-decoration: underline;
                 }
                 @keyframes pulse {
                     0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(40, 167, 69, 0.7); }
@@ -117,10 +129,11 @@ app.get('/', (req, res) => {
             
             <div class="status-badge">
                 <div class="status-dot"></div>
-                <span>ONLINE & OPERANDO</span>
+                <span>Servicios Activos</span>
             </div>
             
             <div class="footer-text">Fortacero © 2026</div>
+            <div class="dev-credits">Desarrollado por <a href="https://frontdigit.net" target="_blank">frontdigit.net</a></div>
         </div>
 
         </body>
@@ -159,7 +172,6 @@ app.post('/cobro-conekta', async (req, res) => {
         const response = await ordersApi.createOrder(orderRequest);
         const order = response.data;
 
-        // Validamos si el cargo fue pagado de inmediato
         if (order.payment_status === 'paid') {
             return res.status(200).json({ success: true, status: order.payment_status, order_id: order.id });
         } else {
@@ -168,7 +180,6 @@ app.post('/cobro-conekta', async (req, res) => {
 
     } catch (error) {
         console.error("Error completo en Conekta:", error);
-        // Extraemos el mensaje de error real devuelto por la API de Conekta
         const errorDetails = error.response?.data?.details?.[0]?.message || error.message;
         return res.status(500).json({ success: false, error: errorDetails });
     }
