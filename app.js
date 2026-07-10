@@ -1,17 +1,13 @@
 const express = require('express');
 const cors = require('cors');
 
-const { Configuration, OrdersApi } = require('conekta');
-
 const app = express();
 app.use(express.json());
 app.use(cors());
 
-const config = new Configuration({
-    accessToken: "key_7BV1gdyCTZrKsxRxZNy2dhz"
-});
-
-const ordersApi = new OrdersApi(config);
+// 🔑 CLAVE SECRETA DE PADDLE DESDE VARIABLES DE ENTORNO
+// En Render añade PADDLE_API_KEY en la pestaña Environment.
+const PADDLE_API_KEY = process.env.PADDLE_API_KEY;
 
 app.get('/', (req, res) => {
     res.status(200).send(`
@@ -20,7 +16,7 @@ app.get('/', (req, res) => {
         <head>
             <meta charset="UTF-8">
             <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <title>API Gateway | Fortacero</title>
+            <title>API Gateway | Frontdigit</title>
             <style>
                 body {
                     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
@@ -124,15 +120,15 @@ app.get('/', (req, res) => {
                     <path d="M20 13c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2H4c-1.1 0-2 .9-2 2v4c0 1.1.9 2 2 2h16zm-11-5c.55 0 1 .45 1 1s-.45 1-1 1-1-.45-1-1 .45-1 1-1zm3 0c.55 0 1 .45 1 1s-.45 1-1 1-1-.45-1-1 .45-1 1-1zm8 11c1.1 0 2-.9 2-2v-4c0-1.1-.9-2-2-2H4c-1.1 0-2 .9-2 2v4c0 1.1.9 2 2 2h16zm-11-5c.55 0 1 .45 1 1s-.45 1-1 1-1-.45-1-1 .45-1 1-1zm3 0c.55 0 1 .45 1 1s-.45 1-1 1-1-.45-1-1 .45-1 1-1z"/>
                 </svg>
             </div>
-            <h1>API de Cobros Fortacero</h1>
-            <p>El entorno de producción se encuentra activo, escuchando peticiones y enlazado correctamente al gateway seguro de Conekta.</p>
+            <h1>API de Microservicios | Frontdigit</h1>
+            <p>El entorno de producción se encuentra activo, escuchando peticiones y enlazado correctamente al motor global de Paddle.</p>
             
             <div class="status-badge">
                 <div class="status-dot"></div>
                 <span>Servicios Activos</span>
             </div>
             
-            <div class="footer-text">Fortacero © 2026</div>
+            <div class="footer-text">frontdigit.net © 2026</div>
             <div class="dev-credits">Desarrollado por <a href="https://frontdigit.net" target="_blank">frontdigit.net</a></div>
         </div>
 
@@ -141,51 +137,66 @@ app.get('/', (req, res) => {
     `);
 });
 
-// Endpoint de cobro con tarjeta directo
-app.post('/cobro-conekta', async (req, res) => {
+// 🚀 NUEVO ENDPOINT PARA GENERAR CHECKOUTS DINÁMICOS CON PADDLE V2
+app.post('/cobro-paddle', async (req, res) => {
     try {
-        console.log("--> DATOS RECIBIDOS EN BACKEND (CONEKTA):", req.body);
-        const { token, email, name, amount, description } = req.body;
+        console.log("--> SOLICITUD RECIBIDA (PADDLE):", req.body);
+        const { amount, description } = req.body;
 
-        // Conekta maneja los montos en CENTAVOS (Ej: $3.00 MXN = 300 centavos)
-        const amountInCents = Math.round(parseFloat(amount) * 100);
+        if (!amount || parseFloat(amount) <= 0) {
+            return res.status(400).json({ success: false, error: "El monto debe ser mayor a 0." });
+        }
 
-        const orderRequest = {
-            currency: "MXN",
-            customer_info: {
-                name: name || "Cliente Fortacero",
-                email: email
+        // Paddle requiere strings exactos para importes monetarios (ej: "1500.00")
+        const formattedAmount = parseFloat(amount).toFixed(2);
+
+        // Petición nativa a la API de transacciones de Paddle v2
+        const response = await fetch('https://api.paddle.com/transactions', {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${PADDLE_API_KEY}`,
+                'Content-Type': 'application/json'
             },
-            line_items: [{
-                name: description || "Compra Web Fortacero",
-                unit_price: amountInCents,
-                quantity: 1
-            }],
-            charges: [{
-                payment_method: {
-                    type: "card",
-                    token_id: token // Token seguro generado por el frontend en cPanel
-                }
-            }]
-        };
+            body: JSON.stringify({
+                items: [
+                    {
+                        quantity: 1,
+                        price: {
+                            description: description || "Servicio Digital Custom",
+                            unit_price: {
+                                amount: formattedAmount,
+                                currency_code: "MXN" // Configura la divisa preferida de tu negocio
+                            },
+                            product_id: "pro_01j234567890abcdefghijklmn" // Asegúrate de crear un producto genérico en tu Dashboard de Paddle y poner su ID aquí
+                        }
+                    }
+                ],
+                collection_mode: "manual" // Genera una transacción abierta lista para link de cobro
+            })
+        });
 
-        const response = await ordersApi.createOrder(orderRequest);
-        const order = response.data;
+        const data = await response.json();
 
-        if (order.payment_status === 'paid') {
-            return res.status(200).json({ success: true, status: order.payment_status, order_id: order.id });
+        if (response.ok && data.data && data.data.checkout) {
+            // Retornamos la URL única del checkout que el script frontend abrirá automáticamente
+            return res.status(200).json({ 
+                success: true, 
+                url: data.data.checkout.url,
+                transaction_id: data.data.id 
+            });
         } else {
-            return res.status(400).json({ success: false, status: order.payment_status, error: "El pago no pudo ser procesado." });
+            console.error("Error devuelto por Paddle:", data);
+            const errorMsg = data.error?.message || "Error al estructurar el cobro en Paddle.";
+            return res.status(400).json({ success: false, error: errorMsg });
         }
 
     } catch (error) {
-        console.error("Error completo en Conekta:", error);
-        const errorDetails = error.response?.data?.details?.[0]?.message || error.message;
-        return res.status(500).json({ success: false, error: errorDetails });
+        console.error("Error crítico en el backend de Paddle:", error);
+        return res.status(500).json({ success: false, error: error.message });
     }
 });
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-    console.log(`Servidor de Conekta activo en puerto ${PORT}`);
+    console.log(`Servidor de Frontdigit enlazado a Paddle activo en puerto ${PORT}`);
 });
