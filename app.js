@@ -5,8 +5,7 @@ const app = express();
 app.use(express.json());
 app.use(cors());
 
-// 🔑 CLAVE SECRETA DE PADDLE DESDE VARIABLES DE ENTORNO
-// En Render añade PADDLE_API_KEY en la pestaña Environment.
+
 const PADDLE_API_KEY = process.env.PADDLE_API_KEY;
 
 app.get('/', (req, res) => {
@@ -165,13 +164,13 @@ app.post('/cobro-paddle', async (req, res) => {
                             description: description || "Servicio Digital Custom",
                             unit_price: {
                                 amount: formattedAmount,
-                                currency_code: "MXN" // Configura la divisa preferida de tu negocio
+                                currency_code: "MXN" 
                             },
-                            product_id: "pro_01j234567890abcdefghijklmn" // Asegúrate de crear un producto genérico en tu Dashboard de Paddle y poner su ID aquí
+                            product_id: "pro_01kx71eyy5q5vfbmtndyr57q0v" 
                         }
                     }
                 ],
-                collection_mode: "manual" // Genera una transacción abierta lista para link de cobro
+                collection_mode: "manual" 
             })
         });
 
