@@ -9,7 +9,7 @@ app.use(cors());
 
 // CORRECCIÓN: El parámetro correcto para pasar el token en el SDK moderno es 'apiKey'
 const config = new Configuration({
-    apiKey: process.env.CONEKTA_PRIVATE_KEY || "key_7BV1gdyCTZrKsxRxZNy2dhz"
+    apiKey: process.env.CONEKTA_PRIVATE_KEY || "key_wx5yGgS95BmGIGp1fzOLSr2"
 });
 
 const ordersApi = new OrdersApi(config);
