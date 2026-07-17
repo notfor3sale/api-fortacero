@@ -6,10 +6,9 @@ const app = express();
 app.use(express.json());
 app.use(cors());
 
-// Jalamos de forma segura la llave privada de las variables de entorno de Render
+// Llave privada desde el Environment de Render
 const PRIVATE_KEY = process.env.CONEKTA_PRIVATE_KEY || "key_wx5yGgS95BmGIGp1fzOLSr2";
 
-// CONFIGURACIÓN BLINDADA: Inyectamos el Bearer Token forzado para evitar problemas de cabeceras
 const config = new Configuration({
     accessToken: PRIVATE_KEY,
     apiKey: PRIVATE_KEY,
@@ -28,7 +27,6 @@ const config = new Configuration({
 
 const ordersApi = new OrdersApi(config);
 
-// Vista estática de Render
 app.get('/', (req, res) => {
     res.status(200).send(`
         <!DOCTYPE html>
@@ -38,136 +36,46 @@ app.get('/', (req, res) => {
             <meta name="viewport" content="width=device-width, initial-scale=1.0">
             <title>API Gateway | Fortacero</title>
             <style>
-                body {
-                    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-                    background-color: #f4f7f6;
-                    margin: 0;
-                    padding: 0;
-                    display: flex;
-                    justify-content: center;
-                    align-items: center;
-                    height: 100vh;
-                }
-                .api-container {
-                    background-color: #ffffff;
-                    max-width: 450px;
-                    width: 90%;
-                    border-radius: 12px;
-                    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
-                    padding: 35px;
-                    text-align: center;
-                    box-sizing: border-box;
-                    border-top: 5px solid #321fdb;
-                }
-                .icon-container {
-                    width: 60px;
-                    height: 60px;
-                    background-color: #e1e8ff;
-                    border-radius: 50%;
-                    display: flex;
-                    justify-content: center;
-                    align-items: center;
-                    margin: 0 auto 20px auto;
-                }
-                .icon-container svg {
-                    width: 30px;
-                    height: 30px;
-                    fill: #321fdb;
-                }
-                h1 {
-                    color: #333333;
-                    font-size: 22px;
-                    font-weight: 600;
-                    margin: 0 0 10px 0;
-                }
-                p {
-                    color: #666666;
-                    font-size: 14px;
-                    line-height: 1.5;
-                    margin: 0 0 25px 0;
-                }
-                .status-badge {
-                    display: inline-flex;
-                    align-items: center;
-                    gap: 8px;
-                    background-color: #e6f7ed;
-                    color: #1e7e34;
-                    padding: 8px 18px;
-                    border-radius: 20px;
-                    font-size: 13px;
-                    font-weight: 600;
-                    border: 1px solid #c3e6cb;
-                }
-                .status-dot {
-                    width: 8px;
-                    height: 8px;
-                    background-color: #28a745;
-                    border-radius: 50%;
-                    animation: pulse 2s infinite;
-                }
-                .footer-text {
-                    margin-top: 25px;
-                    font-size: 11px;
-                    color: #999999;
-                    text-transform: uppercase;
-                    letter-spacing: 0.5px;
-                }
-                .dev-credits {
-                    margin-top: 8px;
-                    font-size: 12px;
-                    color: #777777;
-                }
-                .dev-credits a {
-                    color: #321fdb;
-                    text-decoration: none;
-                    font-weight: 500;
-                }
-                .dev-credits a:hover {
-                    text-decoration: underline;
-                }
-                @keyframes pulse {
-                    0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(40, 167, 69, 0.7); }
-                    70% { transform: scale(1); box-shadow: 0 0 0 6px rgba(40, 167, 69, 0); }
-                    100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(40, 167, 69, 0); }
-                }
+                body { font-family: -apple-system, sans-serif; background-color: #f4f7f6; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
+                .api-container { background-color: #ffffff; max-width: 450px; width: 90%; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); padding: 35px; text-align: center; border-top: 5px solid #321fdb; }
+                h1 { color: #333333; font-size: 22px; margin-bottom: 10px; }
+                p { color: #666666; font-size: 14px; }
+                .status-badge { display: inline-flex; align-items: center; gap: 8px; background-color: #e6f7ed; color: #1e7e34; padding: 8px 18px; border-radius: 20px; font-size: 13px; font-weight: 600; }
+                .status-dot { width: 8px; height: 8px; background-color: #28a745; border-radius: 50%; }
             </style>
         </head>
         <body>
         <div class="api-container">
-            <div class="icon-container">
-                <svg viewBox="0 0 24 24">
-                    <path d="M20 13c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2H4c-1.1 0-2 .9-2 2v4c0 1.1.9 2 2 2h16zm-11-5c.55 0 1 .45 1 1s-.45 1-1 1-1-.45-1-1 .45-1 1-1zm3 0c.55 0 1 .45 1 1s-.45 1-1 1-1-.45-1-1 .45-1 1-1zm8 11c1.1 0 2-.9 2-2v-4c0-1.1-.9-2-2-2H4c-1.1 0-2 .9-2 2v4c0 1.1.9 2 2 2h16zm-11-5c.55 0 1 .45 1 1s-.45 1-1 1-1-.45-1-1 .45-1 1-1zm3 0c.55 0 1 .45 1 1s-.45 1-1 1-1-.45-1-1 .45-1 1-1z"/>
-                </svg>
-            </div>
             <h1>API de Cobros Fortacero</h1>
-            <p>El entorno de producción se encuentra activo, escuchando peticiones y enlazado correctamente al gateway seguro de Conekta.</p>
-            <div class="status-badge">
-                <div class="status-dot"></div>
-                <span>Servicios Activos</span>
-            </div>
-            <div class="footer-text">Fortacero © 2026</div>
-            <div class="dev-credits">Desarrollado por <a href="https://frontdigit.net" target="_blank">frontdigit.net</a></div>
+            <p>El entorno de producción se encuentra activo y enlazado correctamente al gateway seguro de Conekta.</p>
+            <div class="status-badge"><div class="status-dot"></div><span>Servicios Activos</span></div>
         </div>
         </body>
         </html>
     `);
 });
 
-// Endpoint de cobro con tarjeta
+// Endpoint de cobro corregido y blindado
 app.post('/cobro-conekta', async (req, res) => {
     try {
         console.log("--> DATOS RECIBIDOS EN BACKEND (CONEKTA):", req.body);
-        const { token, email, name, amount, description } = req.body;
+        
+        // CORRECCIÓN: Capturamos tanto 'token' como 'token_id' por si el frontend manda cualquiera de los dos
+        const { token, token_id, email, name, amount, description } = req.body;
+        const activeToken = token_id || token;
 
-        // Convertimos el monto que venga de la web a centavos
+        if (!activeToken) {
+            return res.status(400).json({ success: false, error: "Falta el token de la tarjeta generado por el frontend." });
+        }
+
         const amountInCents = Math.round(parseFloat(amount) * 100);
 
         const orderRequest = {
             currency: "MXN",
             customer_info: {
                 name: name || "Cliente Fortacero",
-                email: email || "correo_vacio@fortacero.com", // Jala el correo dinámico del frontend
-                phone: "+523300000000" // Rescatamos el teléfono fijo que hacía que tu código anterior no fallara
+                email: email || "correo_vacio@fortacero.com",
+                phone: "+523300000000" // El teléfono fijo que salvaba la validación en tu código viejo
             },
             line_items: [{
                 name: description || "Compra Web Fortacero",
@@ -177,7 +85,7 @@ app.post('/cobro-conekta', async (req, res) => {
             charges: [{
                 payment_method: {
                     type: "card",
-                    token_id: token
+                    token_id: activeToken // Inyectamos el token verificado y válido
                 }
             }]
         };
@@ -194,8 +102,12 @@ app.post('/cobro-conekta', async (req, res) => {
     } catch (error) {
         console.error("Error completo en Conekta:", error);
         
+        // Si hay un error detallado de la API, lo desglosamos completo en el log
         if (error.response?.data?.details) {
-            console.log("--> DETALLES DE VALIDACIÓN DE PARÁMETROS:", JSON.stringify(error.response.data.details, null, 2));
+            console.log("--> DETALLES DE VALIDACIÓN DE PARÁMETROS:");
+            error.response.data.details.forEach((det, index) => {
+                console.log(`[Error ${index}]: ${det.message} en el campo ${det.param}`);
+            });
         }
         
         const errorDetails = error.response?.data?.details?.[0]?.message || error.message;
