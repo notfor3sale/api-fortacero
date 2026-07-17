@@ -1,18 +1,18 @@
 const express = require('express');
 const cors = require('cors');
-// Importamos el paquete principal de forma directa
-const conektaSdk = require('conekta');
+
+const { Configuration, OrdersApi } = require('conekta');
 
 const app = express();
 app.use(express.json());
 app.use(cors());
 
-// Inicializamos la configuración con el método nativo del SDK moderno
-const config = new conektaSdk.Configuration({
-    accessToken: process.env.CONEKTA_PRIVATE_KEY || "key_7BV1gdyCTZrKsxRxZNy2dhz"
+// CORRECCIÓN: El parámetro correcto para pasar el token en el SDK moderno es 'apiKey'
+const config = new Configuration({
+    apiKey: process.env.CONEKTA_PRIVATE_KEY || "key_7BV1gdyCTZrKsxRxZNy2dhz"
 });
 
-const ordersApi = new conektaSdk.OrdersApi(config);
+const ordersApi = new OrdersApi(config);
 
 app.get('/', (req, res) => {
     res.status(200).send(`
@@ -142,18 +142,13 @@ app.get('/', (req, res) => {
     `);
 });
 
+// Endpoint de cobro con tarjeta directo
 app.post('/cobro-conekta', async (req, res) => {
     try {
         console.log("--> DATOS RECIBIDOS EN BACKEND (CONEKTA):", req.body);
-        
-        // Soportamos tanto token como token_id dinámicamente
-        const { token, token_id, email, name, amount, description } = req.body;
-        const finalToken = token_id || token;
+        const { token, email, name, amount, description } = req.body;
 
-        if (!finalToken) {
-            return res.status(400).json({ success: false, error: "El token de la tarjeta no fue generado correctamente." });
-        }
-
+        // Conekta maneja los montos en CENTAVOS (Ej: $3.00 MXN = 300 centavos)
         const amountInCents = Math.round(parseFloat(amount) * 100);
 
         const orderRequest = {
@@ -170,7 +165,7 @@ app.post('/cobro-conekta', async (req, res) => {
             charges: [{
                 payment_method: {
                     type: "card",
-                    token_id: finalToken
+                    token_id: token // Token seguro generado por el frontend en cPanel
                 }
             }]
         };
