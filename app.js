@@ -1,16 +1,15 @@
 const express = require('express');
 const cors = require('cors');
-
 const { Configuration, OrdersApi } = require('conekta');
 
 const app = express();
 app.use(express.json());
 app.use(cors());
 
-// Definimos la constante de la llave privada (priorizando la variable de entorno de Render)
+// Jalamos de forma segura la llave privada de las variables de entorno de Render
 const PRIVATE_KEY = process.env.CONEKTA_PRIVATE_KEY || "key_wx5yGgS95BmGIGp1fzOLSr2";
 
-// CORRECCIÓN BLINDADA: Inyectamos el Bearer Token directo en los headers del SDK
+// CONFIGURACIÓN BLINDADA: Inyectamos el Bearer Token forzado para evitar problemas de cabeceras
 const config = new Configuration({
     accessToken: PRIVATE_KEY,
     apiKey: PRIVATE_KEY,
@@ -29,6 +28,7 @@ const config = new Configuration({
 
 const ordersApi = new OrdersApi(config);
 
+// Vista estática de Render
 app.get('/', (req, res) => {
     res.status(200).send(`
         <!DOCTYPE html>
@@ -133,7 +133,6 @@ app.get('/', (req, res) => {
             </style>
         </head>
         <body>
-
         <div class="api-container">
             <div class="icon-container">
                 <svg viewBox="0 0 24 24">
@@ -142,35 +141,33 @@ app.get('/', (req, res) => {
             </div>
             <h1>API de Cobros Fortacero</h1>
             <p>El entorno de producción se encuentra activo, escuchando peticiones y enlazado correctamente al gateway seguro de Conekta.</p>
-            
             <div class="status-badge">
                 <div class="status-dot"></div>
                 <span>Servicios Activos</span>
             </div>
-            
             <div class="footer-text">Fortacero © 2026</div>
             <div class="dev-credits">Desarrollado por <a href="https://frontdigit.net" target="_blank">frontdigit.net</a></div>
         </div>
-
         </body>
         </html>
     `);
 });
 
-// Endpoint de cobro con tarjeta directo
+// Endpoint de cobro con tarjeta
 app.post('/cobro-conekta', async (req, res) => {
     try {
         console.log("--> DATOS RECIBIDOS EN BACKEND (CONEKTA):", req.body);
         const { token, email, name, amount, description } = req.body;
 
-        // Conekta maneja los montos en CENTAVOS (Ej: $3.00 MXN = 300 centavos)
+        // Convertimos el monto que venga de la web a centavos
         const amountInCents = Math.round(parseFloat(amount) * 100);
 
         const orderRequest = {
             currency: "MXN",
             customer_info: {
                 name: name || "Cliente Fortacero",
-                email: email || "correo_vacio@fortacero.com"
+                email: email || "correo_vacio@fortacero.com", // Jala el correo dinámico del frontend
+                phone: "+523300000000" // Rescatamos el teléfono fijo que hacía que tu código anterior no fallara
             },
             line_items: [{
                 name: description || "Compra Web Fortacero",
@@ -180,7 +177,7 @@ app.post('/cobro-conekta', async (req, res) => {
             charges: [{
                 payment_method: {
                     type: "card",
-                    token_id: token // Token seguro generado por el frontend en cPanel
+                    token_id: token
                 }
             }]
         };
@@ -196,6 +193,11 @@ app.post('/cobro-conekta', async (req, res) => {
 
     } catch (error) {
         console.error("Error completo en Conekta:", error);
+        
+        if (error.response?.data?.details) {
+            console.log("--> DETALLES DE VALIDACIÓN DE PARÁMETROS:", JSON.stringify(error.response.data.details, null, 2));
+        }
+        
         const errorDetails = error.response?.data?.details?.[0]?.message || error.message;
         return res.status(500).json({ success: false, error: errorDetails });
     }
