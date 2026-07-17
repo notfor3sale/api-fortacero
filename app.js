@@ -1,17 +1,18 @@
 const express = require('express');
 const cors = require('cors');
-const { Configuration, OrdersApi } = require('conekta');
+// Importamos el paquete principal de forma directa
+const conektaSdk = require('conekta');
 
 const app = express();
 app.use(express.json());
 app.use(cors());
 
-// CONFIGURACIÓN SEGURA: Jalamos la llave desde las variables de entorno de Render
-const config = new Configuration({
+// Inicializamos la configuración con el método nativo del SDK moderno
+const config = new conektaSdk.Configuration({
     accessToken: process.env.CONEKTA_PRIVATE_KEY || "key_7BV1gdyCTZrKsxRxZNy2dhz"
 });
 
-const ordersApi = new OrdersApi(config);
+const ordersApi = new conektaSdk.OrdersApi(config);
 
 app.get('/', (req, res) => {
     res.status(200).send(`
@@ -141,12 +142,11 @@ app.get('/', (req, res) => {
     `);
 });
 
-// Endpoint unificado para escuchar '/cobro-conekta' (tal cual lo tenías en tu HTML)
 app.post('/cobro-conekta', async (req, res) => {
     try {
         console.log("--> DATOS RECIBIDOS EN BACKEND (CONEKTA):", req.body);
         
-        // CORRECCIÓN: Leemos tanto 'token' como 'token_id' para evitar que llegue undefined
+        // Soportamos tanto token como token_id dinámicamente
         const { token, token_id, email, name, amount, description } = req.body;
         const finalToken = token_id || token;
 
@@ -154,14 +154,13 @@ app.post('/cobro-conekta', async (req, res) => {
             return res.status(400).json({ success: false, error: "El token de la tarjeta no fue generado correctamente." });
         }
 
-        // Conekta maneja los montos en CENTAVOS
         const amountInCents = Math.round(parseFloat(amount) * 100);
 
         const orderRequest = {
             currency: "MXN",
             customer_info: {
                 name: name || "Cliente Fortacero",
-                email: email || "correo_vacio@fortacero.com" // Dinámico desde tu formulario
+                email: email || "correo_vacio@fortacero.com"
             },
             line_items: [{
                 name: description || "Compra Web Fortacero",
@@ -171,7 +170,7 @@ app.post('/cobro-conekta', async (req, res) => {
             charges: [{
                 payment_method: {
                     type: "card",
-                    token_id: finalToken // Usamos el token recuperado de forma segura
+                    token_id: finalToken
                 }
             }]
         };
