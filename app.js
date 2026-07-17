@@ -1,14 +1,14 @@
 const express = require('express');
 const cors = require('cors');
-
 const { Configuration, OrdersApi } = require('conekta');
 
 const app = express();
 app.use(express.json());
 app.use(cors());
 
+// CONFIGURACIÓN SEGURA: Jalamos la llave desde las variables de entorno de Render
 const config = new Configuration({
-    accessToken: "key_7BV1gdyCTZrKsxRxZNy2dhz"
+    accessToken: process.env.CONEKTA_PRIVATE_KEY || "key_7BV1gdyCTZrKsxRxZNy2dhz"
 });
 
 const ordersApi = new OrdersApi(config);
@@ -141,20 +141,27 @@ app.get('/', (req, res) => {
     `);
 });
 
-// Endpoint de cobro con tarjeta directo
+// Endpoint unificado para escuchar '/cobro-conekta' (tal cual lo tenías en tu HTML)
 app.post('/cobro-conekta', async (req, res) => {
     try {
         console.log("--> DATOS RECIBIDOS EN BACKEND (CONEKTA):", req.body);
-        const { token, email, name, amount, description } = req.body;
+        
+        // CORRECCIÓN: Leemos tanto 'token' como 'token_id' para evitar que llegue undefined
+        const { token, token_id, email, name, amount, description } = req.body;
+        const finalToken = token_id || token;
 
-        // Conekta maneja los montos en CENTAVOS (Ej: $3.00 MXN = 300 centavos)
+        if (!finalToken) {
+            return res.status(400).json({ success: false, error: "El token de la tarjeta no fue generado correctamente." });
+        }
+
+        // Conekta maneja los montos en CENTAVOS
         const amountInCents = Math.round(parseFloat(amount) * 100);
 
         const orderRequest = {
             currency: "MXN",
             customer_info: {
                 name: name || "Cliente Fortacero",
-                email: email
+                email: email || "correo_vacio@fortacero.com" // Dinámico desde tu formulario
             },
             line_items: [{
                 name: description || "Compra Web Fortacero",
@@ -164,7 +171,7 @@ app.post('/cobro-conekta', async (req, res) => {
             charges: [{
                 payment_method: {
                     type: "card",
-                    token_id: token // Token seguro generado por el frontend en cPanel
+                    token_id: finalToken // Usamos el token recuperado de forma segura
                 }
             }]
         };
