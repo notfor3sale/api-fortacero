@@ -7,9 +7,24 @@ const app = express();
 app.use(express.json());
 app.use(cors());
 
-// CORRECCIÓN: El parámetro correcto para pasar el token en el SDK moderno es 'apiKey'
+// Definimos la constante de la llave privada (priorizando la variable de entorno de Render)
+const PRIVATE_KEY = process.env.CONEKTA_PRIVATE_KEY || "key_wx5yGgS95BmGIGp1fzOLSr2";
+
+// CORRECCIÓN BLINDADA: Inyectamos el Bearer Token directo en los headers del SDK
 const config = new Configuration({
-    apiKey: process.env.CONEKTA_PRIVATE_KEY || "key_wx5yGgS95BmGIGp1fzOLSr2"
+    accessToken: PRIVATE_KEY,
+    apiKey: PRIVATE_KEY,
+    middleware: [
+        {
+            pre: async (context) => {
+                context.init.headers = {
+                    ...context.init.headers,
+                    "Authorization": `Bearer ${PRIVATE_KEY}`,
+                    "Accept": "application/vnd.conekta-v2.0.0+json"
+                };
+            }
+        }
+    ]
 });
 
 const ordersApi = new OrdersApi(config);
