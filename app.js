@@ -46,7 +46,7 @@ app.get('/', (req, res) => {
         <body>
         <div class="api-container">
             <h1>API de Cobros Fortacero</h1>
-            <p>El entorno de producción se encuentra activo y enlazado correctamente al gateway seguro de Conekta.</p>
+            <p>El entorno de producción se encuentra activo y enlazado correctamente al gateway seguro.</p>
             <div class="status-badge"><div class="status-dot"></div><span>Servicios Activos</span></div>
         </div>
         </body>
