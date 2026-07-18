@@ -6,7 +6,6 @@ const app = express();
 app.use(express.json());
 app.use(cors());
 
-// Llave privada desde el Environment de Render
 const PRIVATE_KEY = process.env.CONEKTA_PRIVATE_KEY || "key_wx5yGgS95BmGIGp1fzOLSr2";
 
 const config = new Configuration({
@@ -55,13 +54,11 @@ app.get('/', (req, res) => {
     `);
 });
 
-// Endpoint de cobro corregido y blindado
 app.post('/cobro-conekta', async (req, res) => {
     try {
         console.log("--> DATOS RECIBIDOS EN BACKEND (CONEKTA):", req.body);
         
-        // CORRECCIÓN: Capturamos tanto 'token' como 'token_id' por si el frontend manda cualquiera de los dos
-        const { token, token_id, email, name, amount, description } = req.body;
+        const { token, token_id, email, name, phone, amount, description } = req.body;
         const activeToken = token_id || token;
 
         if (!activeToken) {
@@ -70,12 +67,26 @@ app.post('/cobro-conekta', async (req, res) => {
 
         const amountInCents = Math.round(parseFloat(amount) * 100);
 
+        // FORMATEO DE TELÉFONO: Si el cliente escribe sus 10 dígitos (ej: 3312345678), le anteponemos el '+52' requerido por Conekta.
+        let formattedPhone = phone ? phone.trim().replace(/\s+/g, '') : '';
+        if (formattedPhone && !formattedPhone.startsWith('+')) {
+            if (formattedPhone.startsWith('52') && formattedPhone.length === 12) {
+                formattedPhone = '+' + formattedPhone;
+            } else {
+                formattedPhone = '+52' + formattedPhone;
+            }
+        }
+        // Si no mandaron teléfono, dejamos uno de respaldo válido para que no rompa la estructura
+        if (!formattedPhone) {
+            formattedPhone = "+523300000000";
+        }
+
         const orderRequest = {
             currency: "MXN",
             customer_info: {
                 name: name || "Cliente Fortacero",
                 email: email || "correo_vacio@fortacero.com",
-                phone: "+523300000000" // El teléfono fijo que salvaba la validación en tu código viejo
+                phone: formattedPhone // <-- Aquí se inyecta el teléfono real formateado
             },
             line_items: [{
                 name: description || "Compra Web Fortacero",
@@ -85,7 +96,7 @@ app.post('/cobro-conekta', async (req, res) => {
             charges: [{
                 payment_method: {
                     type: "card",
-                    token_id: activeToken // Inyectamos el token verificado y válido
+                    token_id: activeToken
                 }
             }]
         };
@@ -102,7 +113,6 @@ app.post('/cobro-conekta', async (req, res) => {
     } catch (error) {
         console.error("Error completo en Conekta:", error);
         
-        // Si hay un error detallado de la API, lo desglosamos completo en el log
         if (error.response?.data?.details) {
             console.log("--> DETALLES DE VALIDACIÓN DE PARÁMETROS:");
             error.response.data.details.forEach((det, index) => {
