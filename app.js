@@ -3,8 +3,16 @@ const cors = require('cors');
 const { Configuration, OrdersApi } = require('conekta');
 
 const app = express();
+
+// 1. CONFIGURACIÓN COMPLETA DE CORS (Resuelve el error de la imagen)
+app.use(cors({
+    origin: '*',
+    methods: ['GET', 'POST', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'Accept']
+}));
+app.options('*', cors());
+
 app.use(express.json());
-app.use(cors());
 
 const PRIVATE_KEY = process.env.CONEKTA_PRIVATE_KEY || "key_9beUzWRaiGRL2oz0iIc7StX";
 
@@ -67,7 +75,6 @@ app.post('/cobro-conekta', async (req, res) => {
 
         const amountInCents = Math.round(parseFloat(amount) * 100);
 
-        // FORMATEO DE TELÉFONO: Si el cliente escribe sus 10 dígitos (ej: 3312345678), le anteponemos el '+52' requerido por Conekta.
         let formattedPhone = phone ? phone.trim().replace(/\s+/g, '') : '';
         if (formattedPhone && !formattedPhone.startsWith('+')) {
             if (formattedPhone.startsWith('52') && formattedPhone.length === 12) {
@@ -76,7 +83,6 @@ app.post('/cobro-conekta', async (req, res) => {
                 formattedPhone = '+52' + formattedPhone;
             }
         }
-        // Si no mandaron teléfono, dejamos uno de respaldo válido para que no rompa la estructura
         if (!formattedPhone) {
             formattedPhone = "+523300000000";
         }
@@ -86,7 +92,7 @@ app.post('/cobro-conekta', async (req, res) => {
             customer_info: {
                 name: name || "Cliente Fortacero",
                 email: email || "correo_vacio@fortacero.com",
-                phone: formattedPhone // <-- Aquí se inyecta el teléfono real formateado
+                phone: formattedPhone
             },
             line_items: [{
                 name: description || "Compra Web Fortacero",
@@ -114,7 +120,6 @@ app.post('/cobro-conekta', async (req, res) => {
         console.error("Error completo en Conekta:", error);
         
         if (error.response?.data?.details) {
-            console.log("--> DETALLES DE VALIDACIÓN DE PARÁMETROS:");
             error.response.data.details.forEach((det, index) => {
                 console.log(`[Error ${index}]: ${det.message} en el campo ${det.param}`);
             });
