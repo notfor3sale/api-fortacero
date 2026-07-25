@@ -3,16 +3,8 @@ const cors = require('cors');
 const { Configuration, OrdersApi } = require('conekta');
 
 const app = express();
-
-// 1. Configuración de CORS para permitir peticiones preflight (OPTIONS)
-app.use(cors({
-    origin: '*',
-    methods: ['GET', 'POST', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'Accept']
-}));
-app.options('*', cors());
-
 app.use(express.json());
+app.use(cors());
 
 const PRIVATE_KEY = process.env.CONEKTA_PRIVATE_KEY || "key_9beUzWRaiGRL2oz0iIc7StX";
 
@@ -67,17 +59,15 @@ app.post('/cobro-conekta', async (req, res) => {
         console.log("--> DATOS RECIBIDOS EN BACKEND (CONEKTA):", req.body);
         
         const { token, token_id, email, name, phone, amount, description } = req.body;
-        
-        // 2. Extraer el token independientemente de la propiedad recibida
         const activeToken = token_id || token;
 
         if (!activeToken) {
             return res.status(400).json({ success: false, error: "Falta el token de la tarjeta generado por el frontend." });
         }
 
-        const amountInCents = Math.round(parseFloat(amount || 0) * 100);
+        const amountInCents = Math.round(parseFloat(amount) * 100);
 
-        // 3. Formateo de teléfono para México (+52)
+        // FORMATEO DE TELÉFONO: Si el cliente escribe sus 10 dígitos (ej: 3312345678), le anteponemos el '+52' requerido por Conekta.
         let formattedPhone = phone ? phone.trim().replace(/\s+/g, '') : '';
         if (formattedPhone && !formattedPhone.startsWith('+')) {
             if (formattedPhone.startsWith('52') && formattedPhone.length === 12) {
@@ -86,26 +76,26 @@ app.post('/cobro-conekta', async (req, res) => {
                 formattedPhone = '+52' + formattedPhone;
             }
         }
-        if (!formattedPhone || formattedPhone.length < 10) {
+        // Si no mandaron teléfono, dejamos uno de respaldo válido para que no rompa la estructura
+        if (!formattedPhone) {
             formattedPhone = "+523300000000";
         }
 
-        // 4. Construcción de la orden usando type: "default" para procesar el token_id
         const orderRequest = {
             currency: "MXN",
             customer_info: {
-                name: name || "Cliente Aura Natural",
-                email: email || "cliente@auranatural.com",
-                phone: formattedPhone
+                name: name || "Cliente Fortacero",
+                email: email || "correo_vacio@fortacero.com",
+                phone: formattedPhone // <-- Aquí se inyecta el teléfono real formateado
             },
             line_items: [{
-                name: description || "Compra Web Aura Natural",
+                name: description || "Compra Web Fortacero",
                 unit_price: amountInCents,
                 quantity: 1
             }],
             charges: [{
                 payment_method: {
-                    type: "default", // Usar "default" en lugar de "card" resuelve la exigencia de token_id
+                    type: "card",
                     token_id: activeToken
                 }
             }]
@@ -114,7 +104,7 @@ app.post('/cobro-conekta', async (req, res) => {
         const response = await ordersApi.createOrder(orderRequest);
         const order = response.data;
 
-        if (order.payment_status === 'paid' || order.id) {
+        if (order.payment_status === 'paid') {
             return res.status(200).json({ success: true, status: order.payment_status, order_id: order.id });
         } else {
             return res.status(400).json({ success: false, status: order.payment_status, error: "El pago no pudo ser procesado." });
@@ -124,6 +114,7 @@ app.post('/cobro-conekta', async (req, res) => {
         console.error("Error completo en Conekta:", error);
         
         if (error.response?.data?.details) {
+            console.log("--> DETALLES DE VALIDACIÓN DE PARÁMETROS:");
             error.response.data.details.forEach((det, index) => {
                 console.log(`[Error ${index}]: ${det.message} en el campo ${det.param}`);
             });
